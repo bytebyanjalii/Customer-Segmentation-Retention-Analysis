@@ -9,24 +9,55 @@ st.title("🔄 Retention Insights & Business Actions")
 rfm = load_rfm()
 
 # ---------------- Churn Definition ----------------
-rfm["Churn"] = (rfm["Recency"] > 90).astype(int)
+CHURN_THRESHOLD = 90
+rfm["Churn"] = (rfm["Recency"] > CHURN_THRESHOLD).astype(int)
 
 # ---------------- High Risk Customers ----------------
 st.subheader("🚨 High-Risk Customers (Likely to Churn)")
 
-high_risk = rfm[(rfm["Recency"] > 90) & (rfm["Frequency"] <= 2)]
+high_risk = rfm[(rfm["Recency"] > CHURN_THRESHOLD) & (rfm["Frequency"] <= 2)]
 
-st.metric("High-Risk Customers", len(high_risk))
+col1, col2, col3 = st.columns(3)
+col1.metric("High-Risk Customers", len(high_risk))
+col2.metric("Avg Recency (Days)", round(high_risk["Recency"].mean(), 1))
+col3.metric("Avg Spend", f"{high_risk['Monetary'].mean():,.0f}")
 
 # ---------------- Revenue at Risk ----------------
-revenue_at_risk = high_risk["Monetary"].sum()
-
-st.metric("💰 Revenue at Risk", f"{revenue_at_risk:,.2f}")
-
 st.divider()
+st.subheader("💰 Revenue at Risk")
+
+revenue_at_risk = high_risk["Monetary"].sum()
+total_revenue = rfm["Monetary"].sum()
+
+st.metric(
+    "Revenue at Risk",
+    f"{revenue_at_risk:,.2f}",
+    delta=f"{(revenue_at_risk / total_revenue) * 100:.1f}% of total revenue",
+)
+
+# ---------------- Time-to-Churn Distribution ----------------
+st.divider()
+st.subheader("⏱ Time Since Last Purchase (Churn Risk Curve)")
+
+fig_time = px.histogram(
+    rfm,
+    x="Recency",
+    color="Churn",
+    nbins=40,
+    title="Distribution of Recency (Days Since Last Purchase)",
+    labels={"Recency": "Days Since Last Purchase"},
+)
+
+st.plotly_chart(fig_time, use_container_width=True)
+
+st.info(
+    "📌 Insight: Most customers who churn do so after ~90 days of inactivity. "
+    "This window represents a critical intervention period."
+)
 
 # ---------------- Cluster-wise Risk ----------------
-st.subheader("Revenue at Risk by Segment")
+st.divider()
+st.subheader("📊 Revenue at Risk by Customer Segment")
 
 risk_cluster = (
     high_risk.groupby("Cluster")["Monetary"]
@@ -34,41 +65,47 @@ risk_cluster = (
     .reset_index()
 )
 
-fig1 = px.bar(
+fig_cluster = px.bar(
     risk_cluster,
     x="Cluster",
     y="Monetary",
     color="Cluster",
-    title="Revenue at Risk by Customer Segment"
+    title="Revenue at Risk by Customer Segment",
 )
 
-st.plotly_chart(fig1, use_container_width=True)
+st.plotly_chart(fig_cluster, use_container_width=True)
+
+st.info(
+    "📌 Insight: Certain customer segments contribute disproportionately "
+    "to revenue at risk, making segmentation critical for targeted retention."
+)
 
 # ---------------- Business Recommendations ----------------
+st.divider()
 st.subheader("📌 Actionable Retention Strategies")
 
 st.markdown("""
-### 🔵 High-Value Customers (Low Recency, High Monetary)
-- Offer **loyalty rewards**
-- Early access to premium products
-- Personalized recommendations
+### 🔵 High-Value & Recently Active Customers
+- Loyalty rewards and VIP benefits  
+- Personalized product recommendations  
+- Early access to new collections  
 
 ### 🟠 Medium-Value Customers
-- Discount bundles
-- Email reminders
-- Seasonal promotions
+- Discount bundles  
+- Reminder emails based on browsing behavior  
+- Seasonal promotions  
 
 ### 🔴 At-Risk Customers (High Recency)
-- Win-back campaigns
-- Limited-time offers
-- Re-engagement emails
+- Time-bound win-back campaigns  
+- Re-engagement emails after 60 days  
+- Incentives to trigger next purchase  
 
-### ⚫ Low-Value / Churned Customers
-- Reduce marketing spend
-- Automated low-cost retention
+### ⚫ Low-Value / Long-Churned Customers
+- Reduce paid marketing spend  
+- Automated, low-cost email flows  
 """)
 
 st.success(
-    "✅ Business Impact: Targeting the top 20% high-risk customers can significantly "
-    "reduce churn while protecting the majority of revenue."
+    "✅ Business Impact: Intervening during the 60–90 day inactivity window can "
+    "significantly reduce churn while preserving high-value customer revenue."
 )
