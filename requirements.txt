@@ -1,8 +1,11 @@
 pandas
 numpy
+scikit-learn
 matplotlib
 seaborn
-scikit-learn
-jupyter
-streamlit
 plotly
+joblib
+
+# Streamlit & visualization compatibility
+streamlit==1.19.0
+altair==4.2.2
